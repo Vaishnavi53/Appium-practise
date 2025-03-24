@@ -1,4 +1,4 @@
-name: Run Appium Tests
+name: Run Appium Tests 
 
 on:
   push:
@@ -32,12 +32,14 @@ jobs:
 
       - name: Install Android Emulator & System Image
         run: |
-          sdkmanager --install "platform-tools" "emulator" "system-images;android-30;default;x86_64"
-          avdmanager create avd -n test -k "system-images;android-30;default;x86_64" --device "pixel_2"
+          sdkmanager --install "platform-tools" "emulator" "system-images;android-30;google_apis;x86_64"
+          avdmanager create avd -n test_avd -k "system-images;android-30;google_apis;x86_64" --device "Nexus 5"
 
       - name: Start Android Emulator
         run: |
-          $ANDROID_HOME\emulator\emulator -avd test -no-window -noaudio -no-boot-anim &
+          $ANDROID_HOME\emulator\emulator -avd test_avd -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect &
+          Start-Sleep -s 90
+          adb devices
           adb wait-for-device
           echo "Emulator Started"
 
