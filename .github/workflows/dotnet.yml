@@ -12,38 +12,22 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 6.0.x
-
-      - name: Install Android SDK & Emulator
+      - name: Install Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y android-sdk
-          yes | sdkmanager --install "platforms;android-30" "system-images;android-30;google_apis;x86_64" "platform-tools" "emulator"
-          yes | sdkmanager --licenses
-          avdmanager create avd -n testEmulator -k "system-images;android-30;google_apis;x86_64" --device "pixel_4"
+          sudo apt-get update -y
+          sudo apt-get install -y android-sdk adb
+          echo "Dependencies Installed"
 
       - name: Start Android Emulator
         run: |
-          $ANDROID_HOME/emulator/emulator -avd testEmulator -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect &
-          sleep 60
-
-      - name: Restart ADB Server
-        run: |
-          adb kill-server
-          adb start-server
+          sdkmanager --install "system-images;android-30;default;x86_64"
+          echo "no" | avdmanager create avd -n test -k "system-images;android-30;default;x86_64"
+          emulator -avd test -no-window -noaudio -no-boot-anim &
           adb wait-for-device
-
-      - name: Check Emulator Logs
-        run: adb logcat -d > emulator_log.txt
+          echo "Emulator Started"
 
       - name: Restore Dependencies
         run: dotnet restore
-
-      - name: Build Project
-        run: dotnet build --no-restore
 
       - name: Run Appium Tests
         run: dotnet test --no-build
