@@ -24,12 +24,12 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install Appium and Dependencies
+      - name: Install Appium and Restore Dependencies
         run: |
-          cd Appium-practise  # Navigate to the correct folder
-          npm install -g appium
-          appium -v
-          if [ -f package.json ]; then npm install; else echo "No package.json found, skipping install"; fi 
+          cd Appium-practise  # Navigate to your project folder
+          npm ci  # Restore dependencies from package-lock.json
+          npm install -g appium  # Install Appium globally
+          appium -v  # Verify Appium installation
 
       - name: Install Android SDK and Emulator
         run: |
