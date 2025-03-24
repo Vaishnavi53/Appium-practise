@@ -26,9 +26,10 @@ jobs:
 
       - name: Install Appium and Dependencies
         run: |
+          cd Appium-practise  # Navigate to the correct folder
           npm install -g appium
           appium -v
-          npm install 
+          if [ -f package.json ]; then npm install; else echo "No package.json found, skipping install"; fi 
 
       - name: Install Android SDK and Emulator
         run: |
