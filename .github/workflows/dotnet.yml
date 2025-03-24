@@ -31,11 +31,19 @@ jobs:
           npm install -g appium  
           appium -v  
 
-      - name: Install Android SDK and Emulator
+      - name: Set up Android SDK environment
         run: |
-          choco install android-sdk -y
-          echo "y" | sdkmanager --install "system-images;android-30;default;x86_64"
-          echo "no" | avdmanager create avd -n test_avd -k "system-images;android-30;default;x86_64"
+          echo "ANDROID_HOME=C:\Android\android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=C:\Android\android-sdk" >> $GITHUB_ENV
+          echo "PATH=C:\Android\android-sdk\cmdline-tools\latest\bin;C:\Android\android-sdk\platform-tools;C:\Android\android-sdk\emulator;$PATH" >> $GITHUB_ENV
+
+      - name: Reload Environment Variables
+        shell: bash
+        run: source $GITHUB_ENV
+
+      - name: Install Android System Image
+        run: echo "y" | sdkmanager --install "system-images;android-30;default;x86"
+
     
       - name: Start Android Emulator
         run: |
