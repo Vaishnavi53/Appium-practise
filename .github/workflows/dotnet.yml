@@ -26,10 +26,10 @@ jobs:
 
       - name: Install Appium and Restore Dependencies
         run: |
-          cd Appium-practise  # Navigate to your project folder
-          npm ci  # Restore dependencies from package-lock.json
-          npm install -g appium  # Install Appium globally
-          appium -v  # Verify Appium installation
+          
+          npm ci
+          npm install -g appium  
+          appium -v  
 
       - name: Install Android SDK and Emulator
         run: |
