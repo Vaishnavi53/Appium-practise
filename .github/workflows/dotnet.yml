@@ -7,22 +7,37 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Install Chocolatey
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y android-sdk adb
-          echo "Dependencies Installed"
+          Set-ExecutionPolicy Bypass -Scope Process -Force;
+          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072;
+          iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+      - name: Install Java, Android SDK, and ADB
+        run: |
+          choco install -y openjdk
+          choco install -y android-sdk
+          choco install -y adb
+
+      - name: Set Environment Variables
+        run: |
+          echo "ANDROID_HOME=C:\ProgramData\chocolatey\lib\android-sdk" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "ANDROID_SDK_ROOT=C:\ProgramData\chocolatey\lib\android-sdk" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "PATH=$env:ANDROID_HOME\tools;$env:ANDROID_HOME\tools\bin;$env:ANDROID_HOME\platform-tools;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Install Android Emulator & System Image
+        run: |
+          sdkmanager --install "platform-tools" "emulator" "system-images;android-30;default;x86_64"
+          avdmanager create avd -n test -k "system-images;android-30;default;x86_64" --device "pixel_2"
 
       - name: Start Android Emulator
         run: |
-          sdkmanager --install "system-images;android-30;default;x86_64"
-          echo "no" | avdmanager create avd -n test -k "system-images;android-30;default;x86_64"
-          emulator -avd test -no-window -noaudio -no-boot-anim &
+          $ANDROID_HOME\emulator\emulator -avd test -no-window -noaudio -no-boot-anim &
           adb wait-for-device
           echo "Emulator Started"
 
