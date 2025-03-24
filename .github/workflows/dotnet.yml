@@ -1,17 +1,13 @@
+name: Run Appium Tests
 
-name: Run Appium C# Tests with Android Emulator
-
-on: 
+on:
   push:
-    branches:
-      - master
-      
+    branches: master
   workflow_dispatch:
 
 jobs:
   test:
-    runs-on: ubuntu-latest  # Ubuntu works best for Android Emulator
-
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -19,27 +15,29 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 6.0.x  # Change this based on your project
+          dotnet-version: 6.0.x
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Create & Start Android Emulator
+      - name: Install Android SDK & Emulator
         run: |
-          echo "y" | sdkmanager --install "system-images;android-30;google_apis;x86_64"
-          echo "no" | avdmanager create avd -n testEmulator -k "system-images;android-30;google_apis;x86_64" --device "pixel_4"
-          $ANDROID_HOME/emulator/emulator -avd testEmulator -no-snapshot -noaudio -no-boot-anim -gpu swiftshader_indirect &
+          sudo apt-get update
+          sudo apt-get install -y android-sdk
+          yes | sdkmanager --install "platforms;android-30" "system-images;android-30;google_apis;x86_64" "platform-tools" "emulator"
+          yes | sdkmanager --licenses
+          avdmanager create avd -n testEmulator -k "system-images;android-30;google_apis;x86_64" --device "pixel_4"
 
-      - name: Wait for Emulator to Start
+      - name: Start Android Emulator
         run: |
+          $ANDROID_HOME/emulator/emulator -avd testEmulator -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect &
+          sleep 60
+
+      - name: Restart ADB Server
+        run: |
+          adb kill-server
+          adb start-server
           adb wait-for-device
-          adb devices
 
-      - name: Install Appium
-        run: npm install -g appium
-
-      - name: Start Appium Server
-        run: appium --base-path /wd/hub --log-level info &
+      - name: Check Emulator Logs
+        run: adb logcat -d > emulator_log.txt
 
       - name: Restore Dependencies
         run: dotnet restore
@@ -47,5 +45,5 @@ jobs:
       - name: Build Project
         run: dotnet build --no-restore
 
-      - name: Run Appium C# Tests
+      - name: Run Appium Tests
         run: dotnet test --no-build
