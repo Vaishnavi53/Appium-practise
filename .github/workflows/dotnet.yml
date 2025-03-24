@@ -1,4 +1,4 @@
-name: Run Appium Tests 
+name: Run Appium Tests
 
 on:
   push:
@@ -7,45 +7,45 @@ on:
 
 jobs:
   test:
-    runs-on: windows-latest
+    runs-on: windows-latest  # Change to `ubuntu-latest` if needed
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Chocolatey
-        run: |
-          Set-ExecutionPolicy Bypass -Scope Process -Force;
-          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072;
-          iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+      - name: Set Up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
 
-      - name: Install Java, Android SDK, and ADB
-        run: |
-          choco install -y openjdk
-          choco install -y android-sdk
-          choco install -y adb
+      - name: Set Up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-      - name: Set Environment Variables
+      - name: Install Appium and Dependencies
         run: |
-          echo "ANDROID_HOME=C:\ProgramData\chocolatey\lib\android-sdk" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "ANDROID_SDK_ROOT=C:\ProgramData\chocolatey\lib\android-sdk" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "PATH=$env:ANDROID_HOME\tools;$env:ANDROID_HOME\tools\bin;$env:ANDROID_HOME\platform-tools;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Append
+          npm install -g appium
+          appium -v
+          npm install 
 
-      - name: Install Android Emulator & System Image
+      - name: Install Android SDK and Emulator
         run: |
-          sdkmanager --install "platform-tools" "emulator" "system-images;android-30;google_apis;x86_64"
-          avdmanager create avd -n test_avd -k "system-images;android-30;google_apis;x86_64" --device "Nexus 5"
-
+          choco install android-sdk -y
+          echo "y" | sdkmanager --install "system-images;android-30;default;x86_64"
+          echo "no" | avdmanager create avd -n test_avd -k "system-images;android-30;default;x86_64"
+    
       - name: Start Android Emulator
         run: |
-          & "$env:ANDROID_HOME\emulator\emulator.exe" -avd test_avd -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect &
-          Start-Sleep -s 90
-          adb devices
+          $ANDROID_HOME/emulator/emulator.exe -avd test_avd -noaudio -no-boot-anim -gpu swiftshader_indirect &
           adb wait-for-device
-          echo "Emulator Started"
 
+      - name: Verify Emulator is Running
+        run: adb devices
 
-      - name: Restore Dependencies
-        run: dotnet restore
+      - name: Run Appium Server
+        run: appium --log appium.log &
 
       - name: Run Appium Tests
-        run: dotnet test --no-build
+        run: npm test  # Modify if using a different test command
