@@ -37,11 +37,12 @@ jobs:
 
       - name: Start Android Emulator
         run: |
-          $ANDROID_HOME\emulator\emulator -avd test_avd -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect &
+          & "$env:ANDROID_HOME\emulator\emulator.exe" -avd test_avd -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect &
           Start-Sleep -s 90
           adb devices
           adb wait-for-device
           echo "Emulator Started"
+
 
       - name: Restore Dependencies
         run: dotnet restore
