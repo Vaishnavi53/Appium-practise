@@ -44,4 +44,6 @@ jobs:
 
       - name: Run Appium Tests
         run: |
-          mvn test # Or use Gradle, pytest, etc., depending on your test framework
+          cd appium-tests  # Change directory to where pom.xml exists
+          mvn test
+
