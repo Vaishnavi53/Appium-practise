@@ -30,14 +30,16 @@ jobs:
       - name: Set up Android SDK
         run: |
           sudo apt update
-          sudo apt install -y openjdk-11-jdk
-          mkdir -p $HOME/android-sdk
+          sudo apt install -y openjdk-11-jdk unzip
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip commandlinetools-linux-9477386_latest.zip -d $HOME/android-sdk
-          mv $HOME/android-sdk/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          mv cmdline-tools latest  # Fix this: Move extracted folder correctly
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
           echo "$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH" >> $GITHUB_ENV
+
 
       - name: Accept Licenses & Install Emulator
         run: echo "y" | sdkmanager "platform-tools" "platforms;android-30" "system-images;android-30;google_apis;x86_64"
