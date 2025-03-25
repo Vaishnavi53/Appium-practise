@@ -1,47 +1,47 @@
-name: Android CI Setup
+name: Run Appium Android Tests
 
-on: 
-  push:
-    branches:
-      - master
+on: [push]
 
 jobs:
-  build:
+  appium-test:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-
-      - name: Set up JDK 24
+      - name: Set up Java (Required for Android SDK)
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'  # Change if using a different distribution
-          java-version: '24'
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Verify Java Version
-        run: java -version
+      - name: Set up Node.js (Required for Appium)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-      - name: Install Android SDK and Emulator
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Required Android Packages
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          mkdir -p $ANDROID_HOME/cmdline-tools
-          unzip commandlinetools-linux-9477386_latest.zip -d $ANDROID_HOME/cmdline-tools
-          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOMEemulator:$PATH
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-30" "system-images;android-30;google_apis;x86_64" "emulator"
-          avdmanager create avd -n testEmulator -k "system-images;android-30;google_apis;x86_64" --device "pixel_4
+          sdkmanager --install "platform-tools" "platforms;android-30" "system-images;android-30;default;x86_64" "emulator"
+          sdkmanager --licenses
 
-      - name: Accept Licenses
-        run: yes | sdkmanager --licenses
-
-      - name: Install Android System Image
+      - name: Start Android Emulator (If needed)
         run: |
-          sdkmanager --install "system-images;android-30;default;x86"
+          echo "Starting Android emulator..."
+          nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-window -no-audio -no-boot-anim -gpu off &
+          sleep 60 # Wait for emulator to boot
+          adb devices
 
-      - name: Verify SDK Manager
-        run: sdkmanager --version
+      - name: Install & Start Appium Server
+        run: |
+          npm install -g appium
+          appium --version
+          nohup appium & # Start Appium in the background
+
+      - name: Run Appium Tests
+        run: |
+          mvn test # Or use Gradle, pytest, etc., depending on your test framework
