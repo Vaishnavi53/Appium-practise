@@ -1,59 +1,52 @@
-name: Run Android Appium Tests
+name: Android CI Setup
 
-on: [push]
+on: 
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  test:
-    runs-on: ubuntu-latest  # Change to windows-latest if needed
+  build:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Set up Java
+
+      - name: Set up JDK 24
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
-          java-version: '11'
+          distribution: 'temurin'  # Change if using a different distribution
+          java-version: '24'
 
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+      - name: Verify Java Version
+        run: java -version
 
-      - name: Install Appium
-        run: npm install -g appium
-
-      - name: Start Appium Server
-        run: appium --allow-cors &
-
-      - name: Set up Android SDK
+      - name: Set up Android SDK Environment Variables
         run: |
-          sudo apt update
-          sudo apt install -y openjdk-11-jdk unzip
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip -q commandlinetools-linux-9477386_latest.zip
-          mv cmdline-tools latest  # Fix this: Move extracted folder correctly
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH" >> $GITHUB_ENV
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
-
-      - name: Accept Licenses & Install Emulator
-        run: echo "y" | sdkmanager "platform-tools" "platforms;android-30" "system-images;android-30;google_apis;x86_64"
-
-      - name: Create & Start Emulator
+      - name: Install Android SDK Command Line Tools
         run: |
-          echo "no" | avdmanager create avd -n test -k "system-images;android-30;google_apis;x86_64" --device "pixel_2"
-          emulator -avd test -no-audio -no-window &
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          curl -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools.zip -d $ANDROID_HOME/cmdline-tools
+          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          rm commandlinetools.zip
 
-      - name: Wait for Emulator to Boot
+      - name: Accept Licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Install Android System Image
         run: |
-          adb wait-for-device
-          adb shell input keyevent 82
+          sdkmanager --install "system-images;android-30;default;x86"
 
-      - name: Run Appium Tests
-        run: npm test  # Change this based on your framework (e.g., pytest, mocha, junit)
-
+      - name: Verify SDK Manager
+        run: sdkmanager --version
