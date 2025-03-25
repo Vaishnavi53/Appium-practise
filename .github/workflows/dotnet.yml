@@ -41,6 +41,9 @@ jobs:
           npm install -g appium
           appium --version
           nohup appium & # Start Appium in the background
+      - name: Install Appium UIAutomator2 Driver
+        run: appium driver install uiautomator2
+
 
       - name: Run Appium Tests
         run: |
