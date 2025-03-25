@@ -48,7 +48,7 @@ jobs:
       - name: Run Appium Tests
         run: |
           adb devices  # Confirm emulator is detected
-          dotnet test --logger "trx;LogFileName=TestResults.trx" || echo "Tests failed, check logs"
+          dotnet test --logger "trx;LogFileName=TestResults.trx"
           if [ $? -ne 0 ]; then
             echo "Tests failed, stopping pipeline."
             exit 1
