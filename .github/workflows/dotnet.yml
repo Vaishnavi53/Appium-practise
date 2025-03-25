@@ -44,6 +44,9 @@ jobs:
 
       - name: Run Appium Tests
         run: |
-          dotnet test
+          adb devices  # Check if emulator is running
+          ps aux | grep appium  # Check if Appium is running
+          dotnet test --logger "trx;LogFileName=TestResults.trx"
+
 
           
