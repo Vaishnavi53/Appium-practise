@@ -46,7 +46,7 @@ namespace AppiumPractise.AppWebElements
         [Test]
         public void AppInvoketest()
         {
-            IWebElement View = driver.FindElement(By.XPath("//ndroid.widget.TextView[@content-desc=\"Views\"]"));
+            IWebElement View = driver.FindElement(By.XPath("//android.widget.TextView[@content-desc=\"Views\"]"));
             View.Click();
         }
     }
