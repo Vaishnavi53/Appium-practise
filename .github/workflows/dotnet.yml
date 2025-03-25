@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    runs-on: windows-latest  # Change to `ubuntu-latest` if needed
+    runs-on: windows-latest
 
     steps:
       - name: Checkout Repository
@@ -27,23 +27,32 @@ jobs:
 
       - name: Install Appium and Restore Dependencies
         run: |
-          
           npm ci
           npm install -g appium  
           appium -v  
 
-      - name: Set up Android SDK environment
+      #  Install Android SDK and Command Line Tools Manually
+      - name: Install Android SDK and Command Line Tools
         run: |
-          echo "ANDROID_HOME=C:\Android\android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=C:\Android\android-sdk" >> $GITHUB_ENV
-          echo "PATH=C:\Android\android-sdk\cmdline-tools\latest\bin;C:\Android\android-sdk\platform-tools;C:\Android\android-sdk\emulator;$PATH" >> $GITHUB_ENV
+          choco install android-sdk -y
+          mkdir -p C:\Android\cmdline-tools\latest
+          curl -o sdk-tools.zip https://dl.google.com/android/repository/commandlinetools-win-9477386_latest.zip
+          tar -xvf sdk-tools.zip -C C:\Android\cmdline-tools\latest
+          
+          
+          echo "ANDROID_HOME=C:\Android" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=C:\Android" >> $GITHUB_ENV
+          echo "PATH=C:\Android\cmdline-tools\latest\bin;C:\Android\platform-tools;C:\Android\emulator;$PATH" >> $GITHUB_ENV
 
+      # Reload Environment Variables
       - name: Reload Environment Variables
         shell: bash
         run: source $GITHUB_ENV
 
+      # Install Android System Image (Now sdkmanager should work!)
       - name: Install Android System Image
-        run: echo "y" | sdkmanager --install "system-images;android-30;default;x86"
+        run: |
+          yes | C:\Android\cmdline-tools\latest\bin\sdkmanager --install "system-images;android-30;default;x86"
 
     
       - name: Create Android Emulator
