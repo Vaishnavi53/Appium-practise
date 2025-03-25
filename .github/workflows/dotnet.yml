@@ -44,6 +44,6 @@ jobs:
 
       - name: Run Appium Tests
         run: |
-          cd appium-tests  # Change directory to where pom.xml exists
-          mvn test
+          dotnet test
 
+          
