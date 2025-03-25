@@ -46,7 +46,10 @@ jobs:
         run: |
           adb devices  # Confirm emulator is detected
           dotnet test --logger "trx;LogFileName=TestResults.trx" || echo "Tests failed, check logs"
-
+          if [ $? -ne 0 ]; then
+            echo "Tests failed, stopping pipeline."
+            exit 1
+          fi
       # Upload Test Results
 
           
