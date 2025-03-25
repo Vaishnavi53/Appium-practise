@@ -1,77 +1,57 @@
+name: Run Android Appium Tests
 
-name: Run Appium Tests
-
-on:
-  push:
-    branches: master
-  workflow_dispatch:
+on: [push]
 
 jobs:
   test:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest  # Change to windows-latest if needed
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Set Up Java
-        uses: actions/setup-java@v4
+      - name: Set up Java
+        uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '11'
 
-      - name: Set Up Node.js
-        uses: actions/setup-node@v4
+      - name: Install Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Install Appium and Restore Dependencies
-        run: |
-          npm ci
-          npm install -g appium  
-          appium -v  
+      - name: Install Appium
+        run: npm install -g appium
 
-      #  Install Android SDK and Command Line Tools Manually
-      - name: Install Android SDK and Command Line Tools
-        run: |
-          choco install android-sdk -y
-          mkdir -p C:\Android\cmdline-tools\latest
-          curl -o sdk-tools.zip https://dl.google.com/android/repository/commandlinetools-win-9477386_latest.zip
-          tar -xvf sdk-tools.zip -C C:\Android\cmdline-tools\latest
-          
-          
-          echo "ANDROID_HOME=C:\Android" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=C:\Android" >> $GITHUB_ENV
-          echo "PATH=C:\Android\cmdline-tools\latest\bin;C:\Android\platform-tools;C:\Android\emulator;$PATH" >> $GITHUB_ENV
+      - name: Start Appium Server
+        run: appium --allow-cors &
 
-      # Reload Environment Variables
-      - name: Reload Environment Variables
-        shell: bash
-        run: source $GITHUB_ENV
-
-      # Install Android System Image (Now sdkmanager should work!)
-      - name: Install Android System Image
+      - name: Set up Android SDK
         run: |
-          yes | C:\Android\cmdline-tools\latest\bin\sdkmanager --install "system-images;android-30;default;x86"
+          sudo apt update
+          sudo apt install -y openjdk-11-jdk
+          mkdir -p $HOME/android-sdk
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip commandlinetools-linux-9477386_latest.zip -d $HOME/android-sdk
+          mv $HOME/android-sdk/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH" >> $GITHUB_ENV
 
-    
-      - name: Create Android Emulator
-        run: |
-          avdmanager create avd -n test_avd -k "system-images;android-30;default;x86" --device "pixel_3"
+      - name: Accept Licenses & Install Emulator
+        run: echo "y" | sdkmanager "platform-tools" "platforms;android-30" "system-images;android-30;google_apis;x86_64"
 
-      - name: Start Android Emulator
+      - name: Create & Start Emulator
         run: |
-          $ANDROID_HOME/emulator/emulator.exe -avd test_avd -noaudio -no-boot-anim -gpu swiftshader_indirect &
+          echo "no" | avdmanager create avd -n test -k "system-images;android-30;google_apis;x86_64" --device "pixel_2"
+          emulator -avd test -no-audio -no-window &
+
+      - name: Wait for Emulator to Boot
+        run: |
           adb wait-for-device
-
-      - name: Verify Emulator is Running
-        run: adb devices
-
-      - name: Install APK on Emulator
-        run: adb install app/MyApp.apk  # Ensure the APK file exists in your repo
-
-      - name: Run Appium Server
-        run: appium --log appium.log &
+          adb shell input keyevent 82
 
       - name: Run Appium Tests
-        run: npm test  # Modify if using a different test command
+        run: npm test  # Change this based on your framework (e.g., pytest, mocha, junit)
+
