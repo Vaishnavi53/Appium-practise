@@ -1,0 +1,64 @@
+name: Appium CI
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Use Windows if required: windows-latest
+    strategy:
+      matrix:
+        api-level: [30] # Adjust the Android API level as needed
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4 # Checkout the repository
+
+      - name: Set up JDK 17 (Required for Android SDK)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0' # Adjust to match your project version
+
+      - name: Set up Node.js (Required for Appium)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Required Android Packages
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-${{ matrix.api-level }}" "system-images;android-${{ matrix.api-level }};default;x86_64" "emulator"
+          sdkmanager --licenses
+
+      - name: Create & Start Android Emulator
+        run: |
+          echo "Creating and starting Android emulator..."
+          echo "no" | avdmanager create avd -n test -k "system-images;android-${{ matrix.api-level }};default;x86_64" --device "pixel"
+          nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-window -no-audio -no-boot-anim -gpu off &
+          sleep 60 # Allow emulator to boot
+          adb devices # Verify emulator is running
+
+      - name: Install & Start Appium Server
+        run: |
+          npm install -g appium
+          appium --version
+          nohup appium & # Start Appium in the background
+
+      - name: Install Appium UIAutomator2 Driver
+        run: appium driver install uiautomator2
+
+      - name: Run Appium Tests
+        run: |
+          adb devices  # Confirm emulator is detected
+          dotnet test --logger "trx;LogFileName=TestResults.trx"
+          if [ $? -ne 0 ]; then
+            echo "Tests failed, stopping pipeline."
+            exit 1
+          fi
