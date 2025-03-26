@@ -1,28 +1,20 @@
-name: Appium CI
+name: Run Appium Android Tests
 
 on: [push]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest # Use Windows if required: windows-latest
-    strategy:
-      matrix:
-        api-level: [30] # Adjust the Android API level as needed
+  appium-test:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4 # Checkout the repository
+        uses: actions/checkout@v4
 
-      - name: Set up JDK 17 (Required for Android SDK)
+      - name: Set up Java (Required for Android SDK)
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '6.0' # Adjust to match your project version
 
       - name: Set up Node.js (Required for Appium)
         uses: actions/setup-node@v4
@@ -30,48 +22,47 @@ jobs:
           node-version: '18'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Required Android Packages
         run: |
-          sdkmanager --install "platform-tools" "platforms;android-${{ matrix.api-level }}" "system-images;android-${{ matrix.api-level }};default;x86_64" "emulator"
+          sdkmanager --install "platform-tools" "platforms;android-34" "system-images;android-34;default;x86_64" "emulator"
           sdkmanager --licenses
 
-      - name: Create & Start Android Emulator
+      - name: Clone AVD Setup Script Repository
         run: |
-          echo "Creating and starting Android emulator..."
-          
-          # Accept licenses to avoid failures
-          yes | sdkmanager --licenses
-          
-          # Install system image (Android 14, API Level 34)
-          sdkmanager --install "system-images;android-34;default;x86_64"
+          git clone https://github.com/maiz-an/AVD-Setup-without-Andriod-Studio.git avd-setup
+          ls -la avd-setup
 
-          # Create AVD if it doesn't exist
-          avdmanager list avd  # Check if any AVDs exist
-          if [[ ! -d "$HOME/.android/avd/test.avd" ]]; then
-            echo "no" | avdmanager create avd -n test -k "system-images;android-34;default;x86_64" --device "pixel_4"
-          fi
-
-          # List available AVDs to verify
+      - name: Create Android Virtual Device (Using AVD-Setup Script)
+        run: |
+          # Navigate into the cloned repository
+          cd avd-setup
+          # Run the provided script; adjust parameters as needed.
+          # For example, if the repository provides a script called create_avd.sh, run:
+          chmod +x create_avd.sh
+          ./create_avd.sh -n test -a x86_64 -p "android-34" -d "pixel_4"
+          # You can list created AVDs to verify:
           $ANDROID_HOME/emulator/emulator -list-avds
 
-          # Start the emulator in the background
-          nohup $ANDROID_HOME/emulator/emulator -avd test -no-window -no-audio -no-boot-anim -gpu off &
-          sleep 60  # Wait for emulator to boot
-
-          # Verify if emulator is running
+      - name: Start Android Emulator
+        run: |
+          echo "Starting Android emulator..."
+          nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-window -no-audio -no-boot-anim -gpu off &
+          sleep 90  # Wait for emulator to boot
           adb devices
-
 
       - name: Install & Start Appium Server
         run: |
           npm install -g appium
           appium --version
-          nohup appium & # Start Appium in the background
+          nohup appium --base-path /wd/hub --port 4723 & 
+          sleep 10
 
       - name: Install Appium UIAutomator2 Driver
-        run: appium driver install uiautomator2
+        run: |
+          appium driver install uiautomator2
+          appium driver list --installed
 
       - name: Run Appium Tests
         run: |
@@ -81,3 +72,5 @@ jobs:
             echo "Tests failed, stopping pipeline."
             exit 1
           fi
+
+  
