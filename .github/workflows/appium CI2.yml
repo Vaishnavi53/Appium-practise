@@ -40,10 +40,29 @@ jobs:
       - name: Create & Start Android Emulator
         run: |
           echo "Creating and starting Android emulator..."
-          echo "no" | avdmanager create avd -n test -k "system-images;android-${{ matrix.api-level }};default;x86_64" --device "pixel"
-          nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-window -no-audio -no-boot-anim -gpu off &
-          sleep 60 # Allow emulator to boot
-          adb devices # Verify emulator is running
+          
+          # Accept licenses to avoid failures
+          yes | sdkmanager --licenses
+          
+          # Install system image (Android 14, API Level 34)
+          sdkmanager --install "system-images;android-34;default;x86_64"
+
+          # Create AVD if it doesn't exist
+          avdmanager list avd  # Check if any AVDs exist
+          if [[ ! -d "$HOME/.android/avd/test.avd" ]]; then
+            echo "no" | avdmanager create avd -n test -k "system-images;android-34;default;x86_64" --device "pixel_4"
+          fi
+
+          # List available AVDs to verify
+          $ANDROID_HOME/emulator/emulator -list-avds
+
+          # Start the emulator in the background
+          nohup $ANDROID_HOME/emulator/emulator -avd test -no-window -no-audio -no-boot-anim -gpu off &
+          sleep 60  # Wait for emulator to boot
+
+          # Verify if emulator is running
+          adb devices
+
 
       - name: Install & Start Appium Server
         run: |
