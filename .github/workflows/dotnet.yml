@@ -26,8 +26,9 @@ jobs:
 
       - name: Install Required Android Packages
         run: |
-          sdkmanager --install "platform-tools" "platforms;android-30" "system-images;android-30;default;x86_64" "emulator"
+          sdkmanager --install "platform-tools" "platforms;android-34" "system-images;android-34;default;x86_64" "emulator"
           sdkmanager --licenses
+
 
       - name: Start Android Emulator (If needed)
         run: |
