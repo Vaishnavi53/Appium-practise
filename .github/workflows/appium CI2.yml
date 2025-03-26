@@ -29,28 +29,20 @@ jobs:
           sdkmanager --install "platform-tools" "platforms;android-34" "system-images;android-34;default;x86_64" "emulator"
           sdkmanager --licenses
 
-      - name: Clone AVD Setup Script Repository
+      - name: Create Android Virtual Device (AVD)
         run: |
-          git clone https://github.com/maiz-an/AVD-Setup-without-Andriod-Studio.git avd-setup
-          ls -la avd-setup
-
-      - name: Create Android Virtual Device (Using AVD-Setup Script)
-        run: |
-          # Navigate into the cloned repository
-          cd avd-setup
-          # Run the provided script; adjust parameters as needed.
-          # For example, if the repository provides a script called create_avd.sh, run:
-          chmod +x create_avd.sh
-          ./create_avd.sh -n test -a x86_64 -p "android-34" -d "pixel_4"
-          # You can list created AVDs to verify:
+          echo "no" | avdmanager create avd -n emulator-5554 -k "system-images;android-34;default;x86_64" --device "pixel_6"
           $ANDROID_HOME/emulator/emulator -list-avds
 
       - name: Start Android Emulator
         run: |
           echo "Starting Android emulator..."
-          nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-window -no-audio -no-boot-anim -gpu off &
-          sleep 90  # Wait for emulator to boot
+          nohup $ANDROID_HOME/emulator/emulator -avd emulator-5554 -no-snapshot -no-window -no-audio -no-boot-anim -gpu off &
+          sleep 90  # Wait for emulator to fully boot
+          adb wait-for-device
           adb devices
+
+      
 
       - name: Install & Start Appium Server
         run: |
