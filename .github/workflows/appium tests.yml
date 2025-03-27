@@ -24,13 +24,23 @@ jobs:
         node-version: '18'  # Required for Appium
 
     - name: Set up Java
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
-        
-    - name: Set up Android SDK
-      uses: android-actions/setup-android@v3
 
     - name: Install Appium
       run: npm install -g appium
+
+    - name: Install Appium Doctor
+      run: npm install -g appium-doctor
+
+    - name: Install UIAutomator2 Driver for Appium
+      run: appium driver install uiautomator2
+
+    - name: Install Android SDK Platform Tools
+      run: |
+        sdkmanager --install "platform-tools" "platforms;android-35" "system-images;android-35;google_apis;x86_64"
+
+    - name: Accept Android Licenses
+      run: yes | sdkmanager --licenses
