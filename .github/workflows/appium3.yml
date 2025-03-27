@@ -34,7 +34,7 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y openjdk-11-jdk wget unzip
-          
+
           # Install Android Command Line Tools
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
@@ -49,10 +49,11 @@ jobs:
 
           # Accept licenses and install required components
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-30" "system-images;android-30;google_apis;x86_64" "emulator"
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-30" "system-images;android-30;google_apis;arm64-v8a" "emulator"
 
-          # Create AVD
-          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n test_avd -k "system-images;android-30;google_apis;x86_64" --device "pixel"
+          # Create ARM AVD (no need for KVM)
+          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n test_avd -k "system-images;android-30;google_apis;arm64-v8a" --device "pixel"
+
       
       - name: Start Android Emulator
         run: |
