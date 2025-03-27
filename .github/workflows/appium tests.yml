@@ -48,7 +48,17 @@ jobs:
     - name: Accept Android Licenses
       run: yes | sdkmanager --licenses
     
-    - name: Create Android Emulator (AVD)
+    - name: Install Android Emulator Tools
+      run: |
+        sdkmanager --install "emulator"
+        echo "y" | sdkmanager --licenses
+        echo "Adding Emulator to PATH..."
+        echo "$ANDROID_HOME/emulator" >> $GITHUB_PATH
+        echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+        echo "$ANDROID_HOME/tools" >> $GITHUB_PATH
+        echo "$ANDROID_HOME/tools/bin" >> $GITHUB_PATH
+
+    - name: Create Android Emulator
       run: |
         echo "Creating AVD..."
         avdmanager create avd -n test_emulator -k "system-images;android-35;google_apis;x86_64" --device "Nexus 5" --force
@@ -56,10 +66,11 @@ jobs:
     - name: Start Android Emulator
       run: |
         echo "Starting Emulator..."
-        nohup emulator -avd test_emulator -no-audio -no-window -gpu swiftshader_indirect &
+        emulator -avd test_emulator -no-audio -no-window -gpu swiftshader_indirect &
         echo "Waiting for emulator to fully boot..."
         adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'
         adb shell input keyevent 82  # Unlock emulator screen
+
     
     - name: Verify Emulator Status
       run: adb devices 
