@@ -58,6 +58,11 @@ jobs:
         echo "$ANDROID_HOME/tools" >> $GITHUB_PATH
         echo "$ANDROID_HOME/tools/bin" >> $GITHUB_PATH
 
+    - name: Install JAXB for Java 11+
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libjaxb-java
+
     - name: Create Android Emulator
       run: |
         echo "Creating AVD..."
