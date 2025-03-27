@@ -58,11 +58,21 @@ jobs:
         run: |
           export ANDROID_HOME=$HOME/android-sdk
           export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH
+
+          # Verify installed AVDs
+          emulator -list-avds
+
+          # Start emulator with increased timeout
           nohup emulator -avd test_avd -no-audio -no-window -gpu off -no-boot-anim &
+
+          # Wait for the emulator to boot
           adb wait-for-device
+          adb shell getprop sys.boot_completed
+          sleep 60  # Increase wait time
+          
           adb devices
-          sleep 30
+
       
       - name: Run Appium tests
         run: dotnet test AppiumPractise/AppiumPractise.csproj --logger trx
