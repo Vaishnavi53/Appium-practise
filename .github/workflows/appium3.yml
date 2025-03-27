@@ -30,5 +30,20 @@ jobs:
       - name: Build project
         run: dotnet build AppiumPractise/AppiumPractise.csproj --configuration Release
       
+      - name: Set up Android SDK
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y openjdk-11-jdk android-sdk adb
+          sdkmanager "platform-tools" "platforms;android-30" "system-images;android-30;google_apis;x86_64" "emulator"
+          echo "y" | sdkmanager --licenses
+          avdmanager create avd -n test_avd -k "system-images;android-30;google_apis;x86_64" --device "pixel"
+      
+      - name: Start Android Emulator
+        run: |
+          nohup emulator -avd test_avd -no-audio -no-window -gpu off -no-boot-anim &
+          adb wait-for-device
+          adb devices
+          sleep 30
+      
       - name: Run Appium tests
         run: dotnet test AppiumPractise/AppiumPractise.csproj --logger trx
