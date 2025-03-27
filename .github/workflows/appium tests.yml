@@ -47,3 +47,20 @@ jobs:
 
     - name: Accept Android Licenses
       run: yes | sdkmanager --licenses
+
+    - name: Create and Start AVD Emulator
+      run: |
+        echo "Creating AVD..."
+        avdmanager create avd -n test_emulator -k "system-images;android-35;google_apis;x86_64" --device "Nexus 5" --force
+        echo "Starting Emulator..."
+        nohup emulator -avd test_emulator -no-audio -no-window -gpu swiftshader_indirect &  
+        sleep 60  # Wait for the emulator to start
+        
+    - name: Push APK to Emulator
+      run: adb install ./path-to-your-apk.apk  # Replace with actual APK path
+
+    - name: Start Appium Server
+      run: nohup appium --base-path /wd/hub &  
+      
+    - name: Run WebDriverIO Tests
+      run: npx wdio ./wdio.conf.js  # Adjust based on your project setup
