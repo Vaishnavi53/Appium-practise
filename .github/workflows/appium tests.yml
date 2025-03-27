@@ -50,7 +50,7 @@ jobs:
     
     - name: Install Android Emulator Tools
       run: |
-        sdkmanager --install "emulator"
+        sdkmanager --install "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
         echo "y" | sdkmanager --licenses
         echo "Adding Emulator to PATH..."
         echo "$ANDROID_HOME/emulator" >> $GITHUB_PATH
@@ -58,24 +58,18 @@ jobs:
         echo "$ANDROID_HOME/tools" >> $GITHUB_PATH
         echo "$ANDROID_HOME/tools/bin" >> $GITHUB_PATH
 
-    - name: Install JAXB for Java 11+
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libjaxb-java
-
     - name: Create Android Emulator
       run: |
         echo "Creating AVD..."
-        avdmanager create avd -n test_emulator -k "system-images;android-35;google_apis;x86_64" --device "Nexus 5" --force
+        echo "no" | avdmanager create avd -n test_emulator -k "system-images;android-35;google_apis;x86_64" --device "Nexus 5" --force
 
     - name: Start Android Emulator
       run: |
         echo "Starting Emulator..."
-        emulator -avd test_emulator -no-audio -no-window -gpu swiftshader_indirect &
+        $ANDROID_HOME/emulator/emulator -avd test_emulator -no-audio -no-window -gpu swiftshader_indirect &
         echo "Waiting for emulator to fully boot..."
         adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'
         adb shell input keyevent 82  # Unlock emulator screen
-
     
     - name: Verify Emulator Status
       run: adb devices 
