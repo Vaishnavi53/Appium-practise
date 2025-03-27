@@ -1,6 +1,8 @@
 name: Run Appium Android Tests
 
-on: [push]
+on: 
+  push:  # Runs when code is pushed
+  workflow_dispatch:
 
 jobs:
   appium-test:
