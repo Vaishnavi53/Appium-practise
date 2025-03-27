@@ -56,8 +56,9 @@ jobs:
         nohup emulator -avd test_emulator -no-audio -no-window -gpu swiftshader_indirect &  
         sleep 60  # Wait for the emulator to start
         
-    - name: Push APK to Emulator
-      run: adb install ./path-to-your-apk.apk  # Replace with actual APK path
+    - name: Install APK on Emulator
+      run: adb install "./ApiDemos-debug (1).apk"  # Quotes help handle spaces
+
 
     - name: Start Appium Server
       run: nohup appium --base-path /wd/hub &  
