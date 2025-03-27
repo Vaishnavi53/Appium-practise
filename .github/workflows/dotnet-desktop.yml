@@ -1,6 +1,8 @@
 name: Appium CI
 
-on: [push]
+on: 
+  push:  # Runs when code is pushed
+  workflow_dispatch:
 
 jobs:
   build:
