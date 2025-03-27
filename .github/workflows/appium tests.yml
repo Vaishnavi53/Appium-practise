@@ -38,6 +38,9 @@ jobs:
     - name: Install UIAutomator2 Driver for Appium
       run: appium driver install uiautomator2
 
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v3  # Installs Android SDK & tools
+      
     - name: Install Android SDK Platform Tools
       run: |
         sdkmanager --install "platform-tools" "platforms;android-35" "system-images;android-35;google_apis;x86_64"
