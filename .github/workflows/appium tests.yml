@@ -5,86 +5,40 @@ on:
     branches:
       - master
 
+
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  run-mobile-tests:
+    runs-on: macos-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: pull the project in to the runner
+        uses: actions/checkout@v4
 
-    - name: Set up .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0'  # Adjust to match your C# project version
+      - name: setup appium
+        run: |
+          npm install -g appium@v1.22
+          appium -v
+          appium &>/dev/null &
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'  # Required for Appium
+  #    - name: run appium android tests
+   #     uses: reactivecircus/android-emulator-runner@v2
+     #   with:
+      #    api-level: 29
+       #   script: ./gradlew connectedCheck
 
-    - name: Set up Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
+       
+      - name: Setup .NET environment
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '7.0.x' # Use the appropriate .NET version
 
-    - name: Install Appium
-      run: npm install -g appium
+      - name: Restore dependencies
+        run: dotnet restore
 
-    - name: Install Appium Doctor
-      run: npm install -g appium-doctor
+      - name: Build the project
+        run: dotnet build --configuration Release --no-restore
 
-    - name: Install UIAutomator2 Driver for Appium
-      run: appium driver install uiautomator2
-
-    - name: Set up Android SDK
-      uses: android-actions/setup-android@v3  # Installs Android SDK & tools
-      
-    - name: Ensure Android SDK Tools & Emulator Are Installed
-      run: |
-        echo "Ensuring SDK tools and AVD components exist..."
-        sdkmanager --install "cmdline-tools;latest" "platform-tools" "emulator" "platforms;android-35" "system-images;android-35;google_apis;x86_64"
-        echo "y" | sdkmanager --licenses
-        echo "Updating PATH for AVD tools..."
-        echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        echo "$ANDROID_HOME/emulator" >> $GITHUB_PATH
-        echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
-        echo "$ANDROID_HOME/tools" >> $GITHUB_PATH
-        echo "$ANDROID_HOME/tools/bin" >> $GITHUB_PATH
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-
-    - name: Verify SDK Tools
-      run: |
-        echo "Checking available system images..."
-        sdkmanager --list | grep "system-images"
-        echo "Checking emulator tools..."
-        ls -la $ANDROID_HOME/emulator
-
-    - name: Create Android Emulator
-      run: |
-        echo "Creating AVD..."
-        echo "no" | avdmanager create avd -n test_emulator -k "system-images;android-35;google_apis;x86_64" --device "Nexus 5" --force
-        ls -la ~/.android/avd/
-
-    - name: Start Android Emulator
-      run: |
-        echo "Starting Emulator..."
-        nohup $ANDROID_HOME/emulator/emulator -avd test_emulator -no-audio -no-window -gpu swiftshader_indirect &
-        echo "Waiting for emulator to fully boot..."
-        adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'
-        adb shell input keyevent 82  # Unlock emulator screen
-    
-    
-    - name: Verify Emulator Status
-      run: adb devices 
-        
-    - name: Install APK on Emulator
-      run: adb install "./ApiDemos-debug (1).apk"  # Quotes help handle spaces
-
-
-    - name: Start Appium Server
-      run: nohup appium --base-path /wd/hub &  
-      
-    - name: Run WebDriverIO Tests
-      run: npx wdio ./wdio.conf.js  # Adjust based on your project setup
+      - name: Run Appium Android tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
