@@ -33,13 +33,24 @@ jobs:
       - name: Set up Android SDK
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y openjdk-11-jdk android-sdk adb
+          sudo apt-get install -y openjdk-11-jdk wget unzip
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip commandlinetools-linux-9477386_latest.zip
+          mv cmdline-tools latest
+          export ANDROID_HOME=$HOME/android-sdk
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+          yes | sdkmanager --licenses
           sdkmanager "platform-tools" "platforms;android-30" "system-images;android-30;google_apis;x86_64" "emulator"
-          echo "y" | sdkmanager --licenses
           avdmanager create avd -n test_avd -k "system-images;android-30;google_apis;x86_64" --device "pixel"
       
       - name: Start Android Emulator
         run: |
+          export ANDROID_HOME=$HOME/android-sdk
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
           nohup emulator -avd test_avd -no-audio -no-window -gpu off -no-boot-anim &
           adb wait-for-device
           adb devices
