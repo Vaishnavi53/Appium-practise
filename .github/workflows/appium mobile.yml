@@ -1,0 +1,48 @@
+name: Appium Mobile Test 
+
+on:
+  push:
+    branches: master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    
+    - name: Install Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+    
+    - name: Install Appium
+      run: |
+        npm install -g appium@next
+        appium driver install uiautomator2
+    
+    - name: Start Appium Server
+      run: |
+        appium server -p 4723 &
+        sleep 5
+    
+    - name: Restore Dependencies
+      run: dotnet restore
+    
+    - name: Build Project
+      run: dotnet build --no-restore
+    
+    - name: Run Appium Tests
+      env:
+        APPIUM_HOST: http://127.0.0.1:4723
+      run: dotnet test --no-build --verbosity normal
+    
+    - name: Stop Appium Server
+      if: always()
+      run: pkill -f appium
