@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      
 
 jobs:
   test:
@@ -14,7 +13,7 @@ jobs:
         image: appium/appium
         ports:
           - 4723:4723
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,51 +28,21 @@ jobs:
       
       - name: Build project
         run: dotnet build AppiumPractise/AppiumPractise.csproj --configuration Release
-      
-      - name: Set up Android SDK
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y openjdk-11-jdk wget unzip
 
-          # Install Android Command Line Tools
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip commandlinetools-linux-9477386_latest.zip
-          mv cmdline-tools latest
+      - name: Start Android Emulator (Prebuilt)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel
+          disable-animations: true
+          emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect"
+          script: adb shell getprop sys.boot_completed
 
-          # Set environment variables
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH
-
-          # Accept licenses and install required components
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-30" "system-images;android-30;google_apis;arm64-v8a" "emulator"
-
-          # Create ARM AVD (no need for KVM)
-          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n test_avd -k "system-images;android-30;google_apis;arm64-v8a" --device "pixel"
-
-      
-      - name: Start Android Emulator
-        run: |
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH
-
-          # Verify installed AVDs
-          emulator -list-avds
-
-          # Start emulator with increased timeout
-          nohup emulator -avd test_avd -no-audio -no-window -gpu off -no-boot-anim &
-
-          # Wait for the emulator to boot
-          adb wait-for-device
-          adb shell getprop sys.boot_completed
-          sleep 60  # Increase wait time
-          
-          adb devices
-
+      - name: List Connected Devices
+        run: adb devices
       
       - name: Run Appium tests
         run: dotnet test AppiumPractise/AppiumPractise.csproj --logger trx
+
