@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      
 
 jobs:
   test:
@@ -13,13 +14,13 @@ jobs:
         image: appium/appium
         ports:
           - 4723:4723
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
       
@@ -28,65 +29,53 @@ jobs:
       
       - name: Build project
         run: dotnet build AppiumPractise/AppiumPractise.csproj --configuration Release
-
-      - name: Start Android Emulator (Cold Boot)
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          target: google_apis
-          arch: x86_64
-          profile: pixel
-          disable-animations: true
-          emulator-options: "-no-snapshot-save -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect"
-
-      - name: Wait for Emulator to Boot
+      
+      - name: Set up Android SDK
         run: |
-          echo "Waiting for emulator to boot..."
+          sudo apt-get update -y
+          sudo apt-get install -y openjdk-11-jdk wget unzip
+          # Install Android Command Line Tools
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip commandlinetools-linux-9477386_latest.zip
+          mv cmdline-tools latest
+          #   Set environment variables
+          export ANDROID_HOME=$HOME/android-sdk
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH
+          # Accept licenses and install required components
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" \
+          "platforms;android-35" \
+          "system-images;android-35;google_apis_playstore;x86_64" \
+          "emulator"
+          # Create x86_64 AVD with Google Play
+          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n test_avd -k "system-images;android-35;google_apis_playstore;x86_64" --device "pixel"
+
+      - name: Start Android Emulator
+        run: |
+          export ANDROID_HOME=$HOME/android-sdk
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH
+          # Verify installed AVDs
+          emulator -list-avds
+          # Start emulator with correct settings
+          nohup emulator -avd test_avd -no-audio -no-window -gpu swiftshader_indirect -no-boot-anim -skin 1080x1920 &
+          # Wait for emulator to boot
+          adb wait-for-device
           bootCompleted=""
           while [ -z "$bootCompleted" ] || [ "$bootCompleted" -ne "1" ]; do
-            sleep 5
-            bootCompleted=$(adb shell getprop sys.boot_completed | tr -d '\r')
-            echo "Emulator boot status: $bootCompleted"
+          sleep 5
+          bootCompleted=$(adb shell getprop sys.boot_completed | tr -d '\r')
+          echo "Emulator boot status: $bootCompleted"
           done
           echo "Emulator boot completed!"
-
-      - name: Restart ADB Server
-        run: |
-          adb kill-server
-          sleep 3
-          adb start-server
-          sleep 3
           adb devices
 
-      - name: Retry ADB Connection if Offline
-        run: |
-          retries=5
-          while [ $retries -gt 0 ]; do
-            status=$(adb devices | grep "emulator" | awk '{print $2}')
-            if [ "$status" == "device" ]; then
-              echo "Emulator is online!"
-              exit 0
-            fi
-            echo "Emulator still offline... Retrying in 5s"
-            adb kill-server
-            adb start-server
-            sleep 5
-            retries=$((retries - 1))
-          done
-          echo "Emulator is still offline after retries. Exiting..."
-          exit 1
+      - name: Run Appium tests
+        run: dotnet test AppiumPractise/AppiumPractise.csproj --logger trx
 
-      - name: List Connected Devices
-        run: adb devices
-
-      - name: Install APK Inside Emulator
-        run: |
-          adb install path/to/your.apk
-        continue-on-error: true  # In case the APK is already installed
-
-      - name: Launch App Before Running Tests
-        run: |
-          adb shell am start -n "com.your.app/.MainActivity"
-
+      
       - name: Run Appium tests
         run: dotnet test AppiumPractise/AppiumPractise.csproj --logger trx
