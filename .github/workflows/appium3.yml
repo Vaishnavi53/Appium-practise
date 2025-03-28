@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       appium:
-        image: appium/appium:latest
+        image: appium/appium
         ports:
           - 4723:4723
 
@@ -29,7 +29,7 @@ jobs:
       - name: Build project
         run: dotnet build AppiumPractise/AppiumPractise.csproj --configuration Release
 
-      - name: Start Android Emulator (Prebuilt)
+      - name: Start Android Emulator (Cold Boot)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -37,31 +37,56 @@ jobs:
           arch: x86_64
           profile: pixel
           disable-animations: true
-          emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect"
-          script: adb shell getprop sys.boot_completed
+          emulator-options: "-no-snapshot-save -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect"
 
       - name: Wait for Emulator to Boot
         run: |
+          echo "Waiting for emulator to boot..."
           bootCompleted=""
           while [ -z "$bootCompleted" ] || [ "$bootCompleted" -ne "1" ]; do
             sleep 5
             bootCompleted=$(adb shell getprop sys.boot_completed | tr -d '\r')
-            echo "Waiting for emulator to boot... Current status: $bootCompleted"
+            echo "Emulator boot status: $bootCompleted"
           done
+          echo "Emulator boot completed!"
+
+      - name: Restart ADB Server
+        run: |
+          adb kill-server
+          sleep 3
+          adb start-server
+          sleep 3
+          adb devices
+
+      - name: Retry ADB Connection if Offline
+        run: |
+          retries=5
+          while [ $retries -gt 0 ]; do
+            status=$(adb devices | grep "emulator" | awk '{print $2}')
+            if [ "$status" == "device" ]; then
+              echo "Emulator is online!"
+              exit 0
+            fi
+            echo "Emulator still offline... Retrying in 5s"
+            adb kill-server
+            adb start-server
+            sleep 5
+            retries=$((retries - 1))
+          done
+          echo "Emulator is still offline after retries. Exiting..."
+          exit 1
 
       - name: List Connected Devices
         run: adb devices
 
-      - name: Verify Emulator is Running
+      - name: Install APK Inside Emulator
         run: |
-          emulator_id=$(adb devices | awk 'NR==2 {print $1}')
-          if [ -z "$emulator_id" ]; then
-            echo "No emulator detected. Exiting..."
-            exit 1
-          fi
-      
-      - name: Check Appium Status
-        run: curl http://localhost:4723/wd/hub/status
+          adb install path/to/your.apk
+        continue-on-error: true  # In case the APK is already installed
+
+      - name: Launch App Before Running Tests
+        run: |
+          adb shell am start -n "com.your.app/.MainActivity"
 
       - name: Run Appium tests
         run: dotnet test AppiumPractise/AppiumPractise.csproj --logger trx
