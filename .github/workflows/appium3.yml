@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       appium:
-        image: appium/appium
+        image: appium/appium:latest
         ports:
           - 4723:4723
 
@@ -40,9 +40,28 @@ jobs:
           emulator-options: "-no-window -no-audio -no-boot-anim -gpu swiftshader_indirect"
           script: adb shell getprop sys.boot_completed
 
+      - name: Wait for Emulator to Boot
+        run: |
+          bootCompleted=""
+          while [ -z "$bootCompleted" ] || [ "$bootCompleted" -ne "1" ]; do
+            sleep 5
+            bootCompleted=$(adb shell getprop sys.boot_completed | tr -d '\r')
+            echo "Waiting for emulator to boot... Current status: $bootCompleted"
+          done
+
       - name: List Connected Devices
         run: adb devices
+
+      - name: Verify Emulator is Running
+        run: |
+          emulator_id=$(adb devices | awk 'NR==2 {print $1}')
+          if [ -z "$emulator_id" ]; then
+            echo "No emulator detected. Exiting..."
+            exit 1
+          fi
       
+      - name: Check Appium Status
+        run: curl http://localhost:4723/wd/hub/status
+
       - name: Run Appium tests
         run: dotnet test AppiumPractise/AppiumPractise.csproj --logger trx
-
