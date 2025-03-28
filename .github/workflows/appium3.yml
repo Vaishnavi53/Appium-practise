@@ -1,81 +1,80 @@
-name: try appium run
+
+name: Appium Mobile Test Workflow
 
 on:
   push:
     branches:
       - master
-      
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    services:
-      appium:
-        image: appium/appium
-        ports:
-          - 4723:4723
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+      
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      
+      - name: Install Android Emulator Components
+        run: |
+          sdkmanager --list_installed
+          sdkmanager "platform-tools" "platforms;android-35" "system-images;android-35;google_apis;x86_64"
+      
+      - name: Create Android Virtual Device
+        run: |
+          echo "no" | avdmanager create avd -n test_emulator \
+            -k "system-images;android-35;google_apis;x86_64" \
+            --device "pixel_4"
+      
+      - name: Start Android Emulator
+        timeout-minutes: 10
+        run: |
+          # Start emulator with reduced startup overhead
+          emulator -avd test_emulator -no-window -no-audio -gpu swiftshader_indirect &
+          
+          # Wait for emulator with timeout
+          timeout 300 bash -c 'until adb shell getprop sys.boot_completed; do sleep 5; done'
+          
+          # Verify emulator status
+          adb devices
+      
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
       
-      - name: Install dependencies
+      - name: Install Appium
+        run: |
+          npm install -g appium@next
+          appium driver install uiautomator2
+      
+      - name: Start Appium Server
+        run: |
+          appium server -p 4723 &
+          sleep 10
+      
+      - name: Restore Dependencies
         run: dotnet restore AppiumPractise/AppiumPractise.csproj
       
-      - name: Build project
+      - name: Build Project
         run: dotnet build AppiumPractise/AppiumPractise.csproj --configuration Release
       
-      - name: Set up Android SDK
+      - name: Run Appium Tests
+        env:
+          APPIUM_HOST: http://127.0.0.1:4723
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y openjdk-11-jdk wget unzip
-          # Install Android Command Line Tools
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip commandlinetools-linux-9477386_latest.zip
-          mv cmdline-tools latest
-          #   Set environment variables
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH
-          # Accept licenses and install required components
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" \
-          "platforms;android-35" \
-          "system-images;android-35;google_apis_playstore;x86_64" \
-          "emulator"
-          # Create x86_64 AVD with Google Play
-          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n test_avd -k "system-images;android-35;google_apis_playstore;x86_64" --device "pixel"
-
-      - name: Start Android Emulator
-        run: |
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH
-          # Verify installed AVDs
-          emulator -list-avds
-          # Start emulator with correct settings
-          nohup emulator -avd test_avd -no-audio -no-window -gpu swiftshader_indirect -no-boot-anim -skin 1080x1920 &
-          # Wait for emulator to boot
-          adb wait-for-device
-          bootCompleted=""
-          while [ -z "$bootCompleted" ] || [ "$bootCompleted" -ne "1" ]; do
-          sleep 5
-          bootCompleted=$(adb shell getprop sys.boot_completed | tr -d '\r')
-          echo "Emulator boot status: $bootCompleted"
-          done
-          echo "Emulator boot completed!"
-          adb devices
-
-      - name: Run Appium tests
-        run: dotnet test AppiumPractise/AppiumPractise.csproj --logger trx
-
+          dotnet test AppiumPractise/AppiumPractise.csproj --logger trx
       
-      - name: Run Appium tests
-        run: dotnet test AppiumPractise/AppiumPractise.csproj --logger trx
+      - name: Cleanup
+        if: always()
+        run: |
+          pkill -f appium
+          pkill -f emulator
