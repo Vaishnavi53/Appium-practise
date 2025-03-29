@@ -1,19 +1,19 @@
 name: Appium CI
 
 on: 
-  push:  # Runs when code is pushed
+  push:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Use Windows if required: windows-latest
+    runs-on: macos-latest # Use macOS for better emulator support
     strategy:
       matrix:
-        api-level: [30] # Adjust the Android API level as needed
+        api-level: [35] # Updated to match API level 35
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4 # Checkout the repository
+        uses: actions/checkout@v4
 
       - name: Set up JDK 17 (Required for Android SDK)
         uses: actions/setup-java@v3
@@ -24,7 +24,7 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '8.0' # Adjust to match your project version
+          dotnet-version: '8.0'
 
       - name: Set up Node.js (Required for Appium)
         uses: actions/setup-node@v4
@@ -36,29 +36,45 @@ jobs:
 
       - name: Install Required Android Packages
         run: |
-          sdkmanager --install "platform-tools" "platforms;android-${{ matrix.api-level }}" "system-images;android-${{ matrix.api-level }};default;x86_64" "emulator"
+          sdkmanager --install "platform-tools" "platforms;android-${{ matrix.api-level }}" "system-images;android-${{ matrix.api-level }};google_apis_playstore;x86_64" "emulator"
           sdkmanager --licenses
+
+      - name: Ensure ADB is in PATH
+        run: |
+          echo "export PATH=$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
+          adb version
 
       - name: Create & Start Android Emulator
         run: |
           echo "Creating and starting Android emulator..."
-          echo "no" | avdmanager create avd -n test -k "system-images;android-${{ matrix.api-level }};default;x86_64" --device "pixel"
+          echo "no" | avdmanager create avd -n test -k "system-images;android-${{ matrix.api-level }};google_apis_playstore;x86_64" --device "pixel"
           nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-window -no-audio -no-boot-anim -gpu off &
-          sleep 60 # Allow emulator to boot
-          adb devices # Verify emulator is running
+          sleep 90 # Increased sleep time for better booting
+          adb wait-for-device
+          adb devices
+
+      - name: Wait for Emulator to Fully Boot
+        run: |
+          boot_completed=false
+          while [ "$boot_completed" != "1" ]; do
+            echo "Waiting for emulator to boot..."
+            sleep 10
+            boot_completed=$(adb shell getprop sys.boot_completed | tr -d '\r')
+          done
+          echo "Emulator is ready!"
 
       - name: Install & Start Appium Server
         run: |
           npm install -g appium
           appium --version
-          nohup appium & # Start Appium in the background
+          nohup appium &
 
       - name: Install Appium UIAutomator2 Driver
         run: appium driver install uiautomator2
 
       - name: Run Appium Tests
         run: |
-          adb devices  # Confirm emulator is detected
+          adb devices
           dotnet test --logger "trx;LogFileName=TestResults.trx"
           if [ $? -ne 0 ]; then
             echo "Tests failed, stopping pipeline."
