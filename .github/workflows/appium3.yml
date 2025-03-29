@@ -6,16 +6,16 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Changed to Ubuntu for proper emulator support
     strategy:
       matrix:
-        api-level: [35] # Set to Android 15 (API 35)
+        api-level: [35] # Updated API level
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 17 (Required for Android SDK)
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
@@ -36,21 +36,22 @@ jobs:
 
       - name: Install Required Android Packages
         run: |
-          sdkmanager --install "platform-tools" "platforms;android-${{ matrix.api-level }}" \
-            "system-images;android-${{ matrix.api-level }};google_apis_playstore;x86_64" "emulator"
-          sdkmanager --licenses
+          sudo apt-get update
+          sdkmanager --install "platform-tools" "platforms;android-${{ matrix.api-level }}" "system-images;android-${{ matrix.api-level }};google_apis_playstore;x86_64" "emulator"
+          yes | sdkmanager --licenses
 
       - name: Ensure ADB is in PATH
         run: |
           echo "export PATH=$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
           adb version
 
-      - name: Create & Start Android Emulator (Software Rendering)
+      - name: Create & Start Android Emulator (Headless Mode)
         run: |
           echo "Creating and starting Android emulator..."
           echo "no" | avdmanager create avd -n test -k "system-images;android-${{ matrix.api-level }};google_apis_playstore;x86_64" --device "pixel"
-          nohup $ANDROID_HOME/emulator/emulator -avd test -no-window -no-audio -no-boot-anim -gpu off -no-accel &
-          sleep 120 # Increased wait time for booting
+          nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-audio -no-window -gpu swiftshader_indirect -no-boot-anim &
+          sleep 90 # Increased sleep time for stability
+          adb wait-for-device
           adb devices
 
       - name: Wait for Emulator to Fully Boot
@@ -58,16 +59,11 @@ jobs:
           boot_completed=false
           while [ "$boot_completed" != "1" ]; do
             echo "Waiting for emulator to boot..."
-            sleep 15
-            boot_completed=$(adb shell getprop sys.boot_completed | tr -d '\r')
+            sleep 10
+            b
+            oot_completed=$(adb shell getprop sys.boot_completed | tr -d '\r')
           done
           echo "Emulator is ready!"
-
-      - name: Restart ADB Server
-        run: |
-          adb kill-server
-          adb start-server
-          adb devices
 
       - name: Install & Start Appium Server
         run: |
