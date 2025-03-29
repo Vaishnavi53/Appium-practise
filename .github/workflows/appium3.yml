@@ -1,80 +1,66 @@
+name: Appium CI
 
-name: Appium Mobile Test Workflow
-
-on:
-  push:
-    branches:
-      - master
+on: 
+  push:  # Runs when code is pushed
+  workflow_dispatch:
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    
+  build:
+    runs-on: ubuntu-latest # Use Windows if required: windows-latest
+    strategy:
+      matrix:
+        api-level: [30] # Adjust the Android API level as needed
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4 # Checkout the repository
+
+      - name: Set up JDK 17 (Required for Android SDK)
+        uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
-      
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0' # Adjust to match your project version
+
+      - name: Set up Node.js (Required for Appium)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-      
-      - name: Install Android Emulator Components
+
+      - name: Install Required Android Packages
         run: |
-          sdkmanager --list_installed
-          sdkmanager "platform-tools" "platforms;android-35" "system-images;android-35;google_apis;x86_64"
-      
-      - name: Create Android Virtual Device
+          sdkmanager --install "platform-tools" "platforms;android-${{ matrix.api-level }}" "system-images;android-${{ matrix.api-level }};default;x86_64" "emulator"
+          sdkmanager --licenses
+
+      - name: Create & Start Android Emulator
         run: |
-          echo "no" | avdmanager create avd -n test_emulator \
-            -k "system-images;android-35;google_apis;x86_64" \
-            --device "pixel_4"
-      
-      - name: Start Android Emulator
-        timeout-minutes: 10
+          echo "Creating and starting Android emulator..."
+          echo "no" | avdmanager create avd -n test -k "system-images;android-${{ matrix.api-level }};default;x86_64" --device "pixel"
+          nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-window -no-audio -no-boot-anim -gpu off &
+          sleep 60 # Allow emulator to boot
+          adb devices # Verify emulator is running
+
+      - name: Install & Start Appium Server
         run: |
-          # Start emulator with reduced startup overhead
-          emulator -avd test_emulator -no-window -no-audio -gpu swiftshader_indirect &
-          
-          # Wait for emulator with timeout
-          timeout 300 bash -c 'until adb shell getprop sys.boot_completed; do sleep 5; done'
-          
-          # Verify emulator status
-          adb devices
-      
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      
-      - name: Install Appium
-        run: |
-          npm install -g appium@next
-          appium driver install uiautomator2
-      
-      - name: Start Appium Server
-        run: |
-          appium server -p 4723 &
-          sleep 10
-      
-      - name: Restore Dependencies
-        run: dotnet restore AppiumPractise/AppiumPractise.csproj
-      
-      - name: Build Project
-        run: dotnet build AppiumPractise/AppiumPractise.csproj --configuration Release
-      
+          npm install -g appium
+          appium --version
+          nohup appium & # Start Appium in the background
+
+      - name: Install Appium UIAutomator2 Driver
+        run: appium driver install uiautomator2
+
       - name: Run Appium Tests
-        env:
-          APPIUM_HOST: http://127.0.0.1:4723
         run: |
-          dotnet test AppiumPractise/AppiumPractise.csproj --logger trx
-      
-      - name: Cleanup
-        if: always()
-        run: |
-          pkill -f appium
-          pkill -f emulator
+          adb devices  # Confirm emulator is detected
+          dotnet test --logger "trx;LogFileName=TestResults.trx"
+          if [ $? -ne 0 ]; then
+            echo "Tests failed, stopping pipeline."
+            exit 1
+          fi
