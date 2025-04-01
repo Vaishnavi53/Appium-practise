@@ -34,9 +34,19 @@ jobs:
       - name: Create AVD
         run: |
           echo "Creating Android Emulator..."
-          echo "no" | avdmanager create avd -n test -k "system-images;android-34;default;x86_64" --device "pixel_4"
-          echo "hw.lcd.density=320" >> ~/.android/avd/test.avd/config.ini
-          emulator -list-avds  # Verify AVD creation
+          avdmanager create avd -n test -k "system-images;android-34;default;x86_64" --device "pixel_4" --force
+          echo "Checking if AVD directory exists..."
+          ls -la ~/.android/avd/
+          ls -la ~/.android/avd/test.avd/
+
+      - name: Modify AVD Configuration (Fix config.ini error)
+        run: |
+          if [ -d ~/.android/avd/test.avd ]; then
+            echo "hw.lcd.density=320" >> ~/.android/avd/test.avd/config.ini
+          else
+            echo "AVD directory does not exist! Emulator creation failed."
+            exit 1
+          fi
 
       - name: Start Android Emulator
         run: |
