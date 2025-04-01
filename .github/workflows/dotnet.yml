@@ -31,6 +31,9 @@ jobs:
           sdkmanager --install "platform-tools" "platforms;android-34" "system-images;android-34;default;x86_64" "emulator"
           sdkmanager --licenses
 
+      - name: List available AVDs
+        run: emulator -list-avds
+
 
       - name: Start Android Emulator (If needed)
         run: |
@@ -38,6 +41,10 @@ jobs:
           nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-window -no-audio -no-boot-anim -gpu off &
           sleep 60 # Wait for emulator to boot
           adb devices
+
+      - name: List available AVDs
+        run: emulator -list-avds
+
 
       - name: Install & Start Appium Server
         run: |
