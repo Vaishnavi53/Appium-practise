@@ -6,10 +6,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Uses Ubuntu runner
     strategy:
       matrix:
-        api-level: [34]  # Use stable API level
+        api-level: [34]  # You can change this to the required API level
 
     steps:
       - name: Checkout Repository
@@ -36,35 +36,20 @@ jobs:
 
       - name: Install Required Android Packages
         run: |
-          sudo apt-get update
-          sdkmanager --install "platform-tools" "platforms;android-${{ matrix.api-level }}" "system-images;android-${{ matrix.api-level }};google_apis_playstore;x86_64" "emulator"
+          sdkmanager --install "platform-tools" "platforms;android-${{ matrix.api-level }}" "system-images;android-${{ matrix.api-level }};google_apis_playstore;arm64-v8a" "emulator"
           yes | sdkmanager --licenses
-
-      - name: Verify SDK Installations
-        run: |
-          echo "Verifying SDK installations..."
-          sdkmanager --list
-          avdmanager list avd || echo "No AVDs exist yet."
 
       - name: Ensure ADB is in PATH
         run: |
           echo "export PATH=$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
           adb version
 
-      - name: Create Android Emulator
+      - name: Create & Start Android Emulator (Software Mode)
         run: |
-          export ANDROID_AVD_HOME=$HOME/.android/avd
-          mkdir -p $ANDROID_AVD_HOME  # Ensure AVD directory exists
-          echo "no" | avdmanager create avd -n test -k "system-images;android-${{ matrix.api-level }};google_apis_playstore;x86_64" --device "pixel" --force
-          echo "Listing AVDs after creation..."
-          avdmanager list avd
-          ls -l $ANDROID_AVD_HOME
-
-      - name: Start Android Emulator
-        run: |
-          echo "Starting Android emulator..."
-          nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-audio -no-window -gpu swiftshader_indirect -no-boot-anim &
-          sleep 90  # Wait for emulator to boot
+          echo "Creating and starting Android emulator..."
+          echo "no" | avdmanager create avd -n test -k "system-images;android-${{ matrix.api-level }};google_apis_playstore;arm64-v8a" --device "pixel" --force
+          nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-audio -no-window -gpu swiftshader_indirect -no-accel -no-boot-anim &
+          sleep 120  # Increased sleep time for stability
           adb wait-for-device
           adb devices
 
