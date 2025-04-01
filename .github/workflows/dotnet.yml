@@ -1,7 +1,7 @@
 name: Run Appium Android Tests
 
 on:
-  push:  # Runs when code is pushed
+  push:
   workflow_dispatch:
 
 jobs:
@@ -31,29 +31,28 @@ jobs:
           sdkmanager --install "platform-tools" "platforms;android-34" "system-images;android-34;default;x86_64" "emulator"
           sdkmanager --licenses
 
-      - name: List available AVDs
-        run: emulator -list-avds
+      - name: Create AVD
+        run: |
+          echo "Creating Android Emulator..."
+          echo "no" | avdmanager create avd -n test -k "system-images;android-34;default;x86_64" --device "pixel_4"
+          echo "hw.lcd.density=320" >> ~/.android/avd/test.avd/config.ini
+          emulator -list-avds  # Verify AVD creation
 
-
-      - name: Start Android Emulator (If needed)
+      - name: Start Android Emulator
         run: |
           echo "Starting Android emulator..."
           nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-window -no-audio -no-boot-anim -gpu off &
-          sleep 60 # Wait for emulator to boot
+          sleep 60  # Wait for emulator to boot
           adb devices
-
-      - name: List available AVDs
-        run: emulator -list-avds
-
 
       - name: Install & Start Appium Server
         run: |
           npm install -g appium
           appium --version
-          nohup appium & # Start Appium in the background
+          nohup appium &  # Start Appium in the background
+
       - name: Install Appium UIAutomator2 Driver
         run: appium driver install uiautomator2
-
 
       - name: Run Appium Tests
         run: |
@@ -63,6 +62,3 @@ jobs:
             echo "Tests failed, stopping pipeline."
             exit 1
           fi
-      # Upload Test Results
-
-          
