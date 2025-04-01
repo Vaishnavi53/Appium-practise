@@ -1,8 +1,8 @@
 name: Appium CI
  
 on: 
-
-  push
+  push:
+  workflow_dispatch:
  
 jobs:
 
