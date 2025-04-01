@@ -1,3 +1,4 @@
+
 name: Appium CI
 
 on: 
@@ -6,10 +7,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Uses Ubuntu runner
+    runs-on: ubuntu-latest  # Use Ubuntu runner
     strategy:
       matrix:
-        api-level: [34]  # You can change this to the required API level
+        api-level: [34]  # Change API level if needed
 
     steps:
       - name: Checkout Repository
@@ -36,7 +37,10 @@ jobs:
 
       - name: Install Required Android Packages
         run: |
-          sdkmanager --install "platform-tools" "platforms;android-${{ matrix.api-level }}" "system-images;android-${{ matrix.api-level }};google_apis_playstore;arm64-v8a" "emulator"
+          sdkmanager --install "platform-tools" \
+            "platforms;android-${{ matrix.api-level }}" \
+            "system-images;android-${{ matrix.api-level }};google_apis_playstore;arm64-v8a" \
+            "emulator"
           yes | sdkmanager --licenses
 
       - name: Ensure ADB is in PATH
@@ -44,12 +48,25 @@ jobs:
           echo "export PATH=$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
           adb version
 
-      - name: Create & Start Android Emulator (Software Mode)
+      - name: Create AVD Directory (Fix Permissions)
         run: |
-          echo "Creating and starting Android emulator..."
-          echo "no" | avdmanager create avd -n test -k "system-images;android-${{ matrix.api-level }};google_apis_playstore;arm64-v8a" --device "pixel" --force
-          nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-audio -no-window -gpu swiftshader_indirect -no-accel -no-boot-anim &
-          sleep 120  # Increased sleep time for stability
+          mkdir -p ~/.android/avd
+          mkdir -p ~/.android/avd/test.avd
+          echo "AVD directory setup complete"
+
+      - name: Create & Start Android Emulator
+        run: |
+          echo "Creating Android emulator..."
+          echo "no" | avdmanager create avd -n test \
+            -k "system-images;android-${{ matrix.api-level }};google_apis_playstore;arm64-v8a" \
+            --device "pixel" --force
+
+          echo "Starting emulator..."
+          nohup $ANDROID_HOME/emulator/emulator -avd test \
+            -no-snapshot -no-audio -no-window \
+            -gpu swiftshader_indirect -no-boot-anim &
+          
+          sleep 120  # Increase sleep time for emulator to boot
           adb wait-for-device
           adb devices
 
