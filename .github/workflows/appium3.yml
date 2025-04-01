@@ -6,10 +6,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Changed to Ubuntu for proper emulator support
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        api-level: [35] # Updated API level
+        api-level: [34]  # Use stable API level
 
     steps:
       - name: Checkout Repository
@@ -40,17 +40,31 @@ jobs:
           sdkmanager --install "platform-tools" "platforms;android-${{ matrix.api-level }}" "system-images;android-${{ matrix.api-level }};google_apis_playstore;x86_64" "emulator"
           yes | sdkmanager --licenses
 
+      - name: Verify SDK Installations
+        run: |
+          echo "Verifying SDK installations..."
+          sdkmanager --list
+          avdmanager list avd || echo "No AVDs exist yet."
+
       - name: Ensure ADB is in PATH
         run: |
           echo "export PATH=$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
           adb version
 
-      - name: Create & Start Android Emulator (Headless Mode)
+      - name: Create Android Emulator
         run: |
-          echo "Creating and starting Android emulator..."
-          echo "no" | avdmanager create avd -n test -k "system-images;android-${{ matrix.api-level }};google_apis_playstore;x86_64" --device "pixel"
+          export ANDROID_AVD_HOME=$HOME/.android/avd
+          mkdir -p $ANDROID_AVD_HOME  # Ensure AVD directory exists
+          echo "no" | avdmanager create avd -n test -k "system-images;android-${{ matrix.api-level }};google_apis_playstore;x86_64" --device "pixel" --force
+          echo "Listing AVDs after creation..."
+          avdmanager list avd
+          ls -l $ANDROID_AVD_HOME
+
+      - name: Start Android Emulator
+        run: |
+          echo "Starting Android emulator..."
           nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-audio -no-window -gpu swiftshader_indirect -no-boot-anim &
-          sleep 90 # Increased sleep time for stability
+          sleep 90  # Wait for emulator to boot
           adb wait-for-device
           adb devices
 
@@ -60,8 +74,7 @@ jobs:
           while [ "$boot_completed" != "1" ]; do
             echo "Waiting for emulator to boot..."
             sleep 10
-            b
-            oot_completed=$(adb shell getprop sys.boot_completed | tr -d '\r')
+            boot_completed=$(adb shell getprop sys.boot_completed | tr -d '\r')
           done
           echo "Emulator is ready!"
 
