@@ -1,99 +1,246 @@
-
 name: Appium CI
-
+ 
 on: 
-  push:
-  workflow_dispatch:
 
+  push
+ 
 jobs:
+
   build:
-    runs-on: ubuntu-latest  # Use Ubuntu runner
+
+    runs-on: ubuntu-latest
+
     strategy:
+
       matrix:
-        api-level: [34]  # Change API level if needed
 
+        api-level: [34]
+ 
     steps:
+
       - name: Checkout Repository
+
         uses: actions/checkout@v4
+ 
+      - name: Set up JDK 17
 
-      - name: Set up JDK 17 (Required for Android SDK)
         uses: actions/setup-java@v3
+
         with:
+
           distribution: 'temurin'
+
           java-version: '17'
-
+ 
       - name: Set up .NET
+
         uses: actions/setup-dotnet@v3
+
         with:
+
           dotnet-version: '8.0'
+ 
+      - name: Set up Node.js
 
-      - name: Set up Node.js (Required for Appium)
         uses: actions/setup-node@v4
+
         with:
+
           node-version: '18'
-
+ 
       - name: Set up Android SDK
+
         uses: android-actions/setup-android@v3
+ 
+      - name: Set up Android SDK Environment
 
+        run: |
+
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+
+          echo "AVD_HOME=$HOME/.android/avd" >> $GITHUB_ENV
+
+          echo "$ANDROID_HOME/tools/bin" >> $GITHUB_PATH
+
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+ 
       - name: Install Required Android Packages
+
         run: |
+
           sdkmanager --install "platform-tools" \
+
             "platforms;android-${{ matrix.api-level }}" \
+
             "system-images;android-${{ matrix.api-level }};google_apis_playstore;arm64-v8a" \
-            "emulator"
+
+            "build-tools;34.0.0" \
+
+            "emulator" \
+
+            --channel=0
+
+          sdkmanager --update
+
           yes | sdkmanager --licenses
+ 
+      - name: Debug Information
 
-      - name: Ensure ADB is in PATH
         run: |
-          echo "export PATH=$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
-          adb version
 
-      - name: Create AVD Directory (Fix Permissions)
+          echo "Android SDK Root: $ANDROID_SDK_ROOT"
+
+          echo "Android Home: $ANDROID_HOME"
+
+          echo "AVD Home: $HOME/.android/avd"
+
+          ls -la $HOME/.android/avd
+ 
+      - name: Create AVD Directory
+
         run: |
-          mkdir -p ~/.android/avd
-          mkdir -p ~/.android/avd/test.avd
+
+          mkdir -p $HOME/.android/avd
+
+          chmod -R 777 $HOME/.android/avd
+
           echo "AVD directory setup complete"
-
+ 
       - name: Create & Start Android Emulator
+
         run: |
+
+          # Create AVD
+
           echo "Creating Android emulator..."
-          echo "no" | avdmanager create avd -n test \
-            -k "system-images;android-${{ matrix.api-level }};google_apis_playstore;arm64-v8a" \
-            --device "pixel" --force
+
+          avdmanager create avd \
+
+            --name "test" \
+
+            --package "system-images;android-${{ matrix.api-level }};google_apis_playstore;arm64-v8a" \
+
+            --device "pixel" \
+
+            --force \
+
+            --abi "arm64-v8a"
+ 
+          # Verify AVD creation
+
+          avdmanager list avd
+ 
+          # Start emulator
 
           echo "Starting emulator..."
-          nohup $ANDROID_HOME/emulator/emulator -avd test \
-            -no-snapshot -no-audio -no-window \
-            -gpu swiftshader_indirect -no-boot-anim &
-          
-          sleep 120  # Increase sleep time for emulator to boot
+
+          nohup $ANDROID_HOME/emulator/emulator \
+
+            -avd test \
+
+            -no-snapshot \
+
+            -no-audio \
+
+            -no-window \
+
+            -gpu swiftshader_indirect \
+
+            -no-boot-anim \
+
+            -verbose \
+
+            -cores 2 \
+
+            -memory 2048 &
+ 
+          # Wait for device
+
           adb wait-for-device
+
+          # Verify emulator status
+
+          echo "Emulator status:"
+
           adb devices
 
-      - name: Wait for Emulator to Fully Boot
-        run: |
-          boot_completed=false
-          while [ "$boot_completed" != "1" ]; do
-            echo "Waiting for emulator to boot..."
-            sleep 10
-            boot_completed=$(adb shell getprop sys.boot_completed | tr -d '\r')
-          done
-          echo "Emulator is ready!"
+          sleep 90
+ 
+      - name: Wait for Emulator to be Ready
 
-      - name: Install & Start Appium Server
         run: |
+
+          echo "Waiting for emulator to boot completely..."
+
+          timeout 300 adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done'
+
+          adb shell input keyevent 82
+
+          adb shell settings put global window_animation_scale 0
+
+          adb shell settings put global transition_animation_scale 0
+
+          adb shell settings put global animator_duration_scale 0
+
+          echo "Emulator is ready!"
+ 
+      - name: Install & Start Appium Server
+
+        run: |
+
           npm install -g appium
+
+          appium driver install uiautomator2
+
           appium --version
+
           nohup appium &
 
-      - name: Install Appium UIAutomator2 Driver
-        run: appium driver install uiautomator2
+          sleep 10
 
+          echo "Appium server started"
+ 
       - name: Run Appium Tests
+
         run: |
+
+          echo "Running tests..."
+
           adb devices
+
           dotnet test --logger "trx;LogFileName=TestResults.trx"
+
           if [ $? -ne 0 ]; then
-            echo "Tests failed, stopping pipeline."
+
+            echo "Tests failed!"
+
             exit 1
+
           fi
+ 
+      - name: Upload Test Results
+
+        if: always()
+
+        uses: actions/upload-artifact@v3
+
+        with:
+
+          name: test-results
+
+          path: TestResults.trx
+ 
+      - name: Cleanup
+
+        if: always()
+
+        run: |
+
+          adb devices
+
+          adb emu kill
+
+          pkill -f appium
+ 
