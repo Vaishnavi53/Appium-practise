@@ -1,22 +1,30 @@
-name: Run Appium Android Tests
+name: Appium CI
 
-on:
+on: 
   push:
   workflow_dispatch:
 
 jobs:
-  appium-test:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest # Changed to Ubuntu for proper emulator support
+    strategy:
+      matrix:
+        api-level: [35] # Updated API level
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Java (Required for Android SDK)
+      - name: Set up JDK 17 (Required for Android SDK)
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0'
 
       - name: Set up Node.js (Required for Appium)
         uses: actions/setup-node@v4
@@ -28,45 +36,53 @@ jobs:
 
       - name: Install Required Android Packages
         run: |
-          sdkmanager --install "platform-tools" "platforms;android-34" "system-images;android-34;default;x86_64" "emulator"
-          sdkmanager --licenses
+          sudo apt-get update
+          sdkmanager --install "platform-tools" "platforms;android-${{ matrix.api-level }}" "system-images;android-${{ matrix.api-level }};google_apis_playstore;x86_64" "emulator"
+          yes | sdkmanager --licenses
 
-      - name: Create AVD
+      - name: Ensure ADB is in PATH
         run: |
-          echo "Creating Android Emulator..."
-          avdmanager create avd -n test -k "system-images;android-34;default;x86_64" --device "pixel_4" --force
-          echo "Checking if AVD directory exists..."
-          ls -la ~/.android/avd/
-          ls -la ~/.android/avd/test.avd/
+          echo "export PATH=$ANDROID_HOME/platform-tools:$PATH" >> $GITHUB_ENV
+          adb version
 
-      - name: Modify AVD Configuration (Fix config.ini error)
+      - name: Create & Start Android Emulator (Headless Mode)
         run: |
-          if [ -d ~/.android/avd/test.avd ]; then
-            echo "hw.lcd.density=320" >> ~/.android/avd/test.avd/config.ini
-          else
-            echo "AVD directory does not exist! Emulator creation failed."
-            exit 1
-          fi
-
-      - name: Start Android Emulator
-        run: |
-          echo "Starting Android emulator..."
-          nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-window -no-audio -no-boot-anim -gpu off &
-          sleep 60  # Wait for emulator to boot
+          echo "Creating and starting Android emulator..."
+          echo "no" | avdmanager create avd -n test -k "system-images;android-${{ matrix.api-level }};google_apis_playstore;x86_64" --device "pixel"
+          nohup $ANDROID_HOME/emulator/emulator -avd test -no-snapshot -no-audio -no-window -gpu swiftshader_indirect -no-boot-anim &
+          sleep 90 # Increased sleep time for stability
+          adb wait-for-device
           adb devices
+
+      - name: Wait for Emulator to Fully Boot
+        run: |
+          boot_completed=false
+          timeout=300 # Timeout after 5 minutes (300 seconds)
+          start_time=$(date +%s)
+          while [ "$boot_completed" != "1" ]; do
+            echo "Waiting for emulator to boot..."
+            sleep 10
+            boot_completed=$(adb shell getprop sys.boot_completed | tr -d '\r')
+            elapsed_time=$(( $(date +%s) - start_time ))
+            if [ $elapsed_time -gt $timeout ]; then
+              echo "Emulator did not boot in time. Exiting."
+              exit 1
+            fi
+          done
+          echo "Emulator is ready!"
 
       - name: Install & Start Appium Server
         run: |
           npm install -g appium
           appium --version
-          nohup appium &  # Start Appium in the background
+          nohup appium &
 
       - name: Install Appium UIAutomator2 Driver
         run: appium driver install uiautomator2
 
       - name: Run Appium Tests
         run: |
-          adb devices  # Confirm emulator is detected
+          adb devices
           dotnet test --logger "trx;LogFileName=TestResults.trx"
           if [ $? -ne 0 ]; then
             echo "Tests failed, stopping pipeline."
