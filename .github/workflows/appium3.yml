@@ -7,14 +7,15 @@ on:
 
 jobs:
   test:
-    runs-on: macos-latest  # ✅ Switch to macOS for hardware acceleration
-    services:
-      appium:
-        image: appium/appium
-        ports:
-          - 4723:4723
+    runs-on: macos-latest  # ✅ Using macOS for emulator performance
 
     steps:
+      - name: Install Docker on macOS  # ✅ FIX: Install Docker first!
+        run: |
+          brew install --cask docker
+          open -a Docker
+          sleep 10  # Wait for Docker to start
+      
       - name: Checkout repository
         uses: actions/checkout@v4
 
