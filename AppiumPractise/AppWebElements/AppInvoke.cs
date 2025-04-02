@@ -30,7 +30,7 @@ namespace AppiumPractise.AppWebElements
                 DeviceName = "emulator-5554",
 
             };
-
+             driverOptions.AddAdditionalAppiumOption("avd", "medium_phone_api_35");
             //Initializign appium server 
             //desired capabilities
             driverOptions.AddAdditionalAppiumOption("Application", appPath);
