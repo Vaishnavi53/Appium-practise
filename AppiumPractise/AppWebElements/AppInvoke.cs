@@ -1,53 +1,67 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
-using NUnit.Framework;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Android;
+using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Enums;
-using OpenQA.Selenium.DevTools.V85.WebAudio;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Appium.Service.Options;
+using OpenQA.Selenium.Appium.Service;
 
 namespace AppiumPractise.AppWebElements
 {
     [TestFixture]
     public class AppInvoke
     {
-        public AndroidDriver driver;
+        private AppiumLocalService _appiumService = null!;
+        private AndroidDriver _androidDriver = null!;
 
-        [OneTimeSetUp]
-        public void setup()
+        [SetUp]
+        public void SetUp()
         {
-            var appPath = "C:\\Users\\vaman\\Downloads\\ApiDemos-debug (1).apk";
-            var serverUri = new Uri(Environment.GetEnvironmentVariable("APPIUM_HOST") ?? "http://127.0.0.1:4723");
-            var driverOptions = new AppiumOptions()
-            {
-                AutomationName = AutomationName.AndroidUIAutomator2,
-                PlatformName = "Android",
-                DeviceName = "emulator-5554",
-
-            };
-             driverOptions.AddAdditionalAppiumOption("avd", "medium_phone_api_35");
-            //Initializign appium server 
-            //desired capabilities
-            driverOptions.AddAdditionalAppiumOption("Application", appPath);
-            driverOptions.AddAdditionalAppiumOption("noReset", "true");
-            driver = new AndroidDriver(serverUri, driverOptions, TimeSpan.FromSeconds(180));
-
+            _appiumService = StartAppiumServer();
+            _androidDriver = LaunchApp(_appiumService);
         }
-        [OneTimeTearDown]
+
+        [TearDown]
         public void TearDown()
         {
-            driver.Dispose();
+            _androidDriver?.Dispose();
+            _appiumService?.Dispose();
         }
+
+        private AppiumLocalService StartAppiumServer(int? port = null)
+        {
+            var options = new OptionCollector();
+            options.AddArguments(GeneralOptionList.NoPermsCheck());
+            options.AddArguments(new KeyValuePair<string, string>("--allow-insecure", "adb_shell"));
+
+            var builder = new AppiumServiceBuilder().WithArguments(options);
+            var service = port.HasValue ? builder.UsingPort(port.Value).Build() : builder.UsingAnyFreePort().Build();
+            service.Start();
+            return service;
+        }
+
+        private AndroidDriver LaunchApp(AppiumLocalService service)
+        {
+            var appPath = @"C:\Users\vaman\Downloads\ApiDemos-debug (1).apk";  // Make sure this path is valid
+            var caps = new AppiumOptions();
+            caps.PlatformName = "Android";
+            caps.DeviceName = "emulator-5554";
+            caps.AutomationName = "UiAutomator2";
+            caps.App = appPath;
+            caps.AddAdditionalAppiumOption("newCommandTimeout", 300);
+            caps.AddAdditionalAppiumOption("adbExecTimeout", 30000);
+            caps.AddAdditionalAppiumOption("appPackage", "io.appium.android.apis");
+            caps.AddAdditionalAppiumOption("appActivity", ".ApiDemos");
+
+            return new AndroidDriver(service, caps);
+        }
+
         [Test]
         public void AppInvoketest()
         {
-            IWebElement View = driver.FindElement(By.XPath("//android.widget.TextView[@content-desc=\"Views\"]"));
+            // Ensure the app has launched and the "Views" element is visible
+            IWebElement View = _androidDriver.FindElement(By.XPath("//android.widget.TextView[@content-desc='Views']"));
             View.Click();
         }
+
     }
 }
