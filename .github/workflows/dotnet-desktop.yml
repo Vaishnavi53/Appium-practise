@@ -24,7 +24,7 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '6.0' # Adjust to match your project version
+          dotnet-version: '8.0' # Adjust to match your project version
 
       - name: Set up Node.js (Required for Appium)
         uses: actions/setup-node@v4
