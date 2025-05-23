@@ -50,3 +50,11 @@ jobs:
             dotnet restore
             dotnet build --configuration Release
             dotnet test --no-build --configuration Release --logger "trx"
+
+      - name: Upload Test Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Test-Screenshots
+          path: ./test/Appium-practise/bin/Debug/net8.0/TestResults/Screenshots
+ 
