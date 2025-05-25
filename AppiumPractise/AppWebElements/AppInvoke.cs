@@ -45,7 +45,7 @@ namespace AppiumPractise.AppWebElements
 
         private AndroidDriver LaunchApp(AppiumLocalService service)
         {
-            var appPath = @"C:\Users\vaman\Downloads\ApiDemos-debug (1).apk";  // Make sure this path is valid
+           var appPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"../../ApiDemos-debug(1).apk"));
             var caps = new AppiumOptions();
             caps.PlatformName = "Android";
             caps.DeviceName = "emulator-5554";
