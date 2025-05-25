@@ -4,6 +4,10 @@ using OpenQA.Selenium.Appium.Enums;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Appium.Service.Options;
 using OpenQA.Selenium.Appium.Service;
+using System.IO;
+using OpenQA.Selenium.Support.Extensions;
+
+using System.IO;
 
 namespace AppiumPractise.AppWebElements
 {
@@ -58,10 +62,28 @@ namespace AppiumPractise.AppWebElements
         [Test]
         public void AppInvoketest()
         {
+
+         
             // Ensure the app has launched and the "Views" element is visible
-            IWebElement View = _androidDriver.FindElement(By.XPath("//android.widget.TextView[@content-desc='Views']"));
-            View.Click();
+                IWebElement View = _androidDriver.FindElement(By.XPath("//android.widget.TextView[@content-desc='Views']"));
+                View.Click();
+
+            // Screenshot directory setup
+            string screenshotsDir = Path.Combine(AppContext.BaseDirectory, "TestResults", "Screenshots");
+
+            Directory.CreateDirectory(screenshotsDir);
+
+            // Take screenshot using latest API
+            Screenshot screenshot = _androidDriver.GetScreenshot();
+
+            string filePath = Path.Combine(screenshotsDir, $"ViewScreen_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+            screenshot.SaveAsFile(filePath);
+
+
+
+
         }
 
+
     }
-}
+    }
